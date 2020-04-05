@@ -44,7 +44,7 @@ IRrecv irrecv(RECV_PIN);
 // There is a REPEAT code sent in NEC protocol if button remains pressed
 
 int getButton(long code) {
-  switch(code) {
+  switch (code) {
     case BT_0:
       return 0;
     case BT_1:
@@ -66,7 +66,7 @@ int getButton(long code) {
     case BT_9:
       return 9;
     default:
-      return -1;  
+      return -1;
   }
 }
 
@@ -90,6 +90,8 @@ void setup() {
   digitalWrite(in2, LOW);
   digitalWrite(in3, LOW);
   digitalWrite(in4, LOW);
+
+  Serial.println("setup() done, robot ready.");
 }
 
 void irtest() {
@@ -100,9 +102,64 @@ void irtest() {
   }
 }
 
+
+// Management via serial port
+void SerialController() {
+  Serial.println("Command:");
+  while(Serial.available() < 3) {delay(100);}
+  byte cmd = Serial.read();
+  byte arg = Serial.read();
+  byte newline = Serial.read();
+  Serial.print("Cmd=");
+  Serial.println(cmd);
+
+  Serial.print("Arg=");
+  Serial.println(arg);
+
+  switch (cmd) {
+    case 'M':
+      Serial.print("Move command: ");
+      switch (arg) {
+        case 'F':
+          Serial.println("Forward");
+          STOP(); delay(200);
+          MoveForward();
+          break;
+        case 'B':
+          Serial.println("Backward");
+          STOP(); delay(200);
+          MoveBackward();
+          break;
+        case 'R':
+          Serial.println("Right");
+          STOP(); delay(200);
+          TurnRight();
+          break;
+        case 'L':
+          Serial.println("Left");
+          STOP(); delay(200);
+          TurnLeft();
+          break;
+        default:
+          Serial.println("UNKNOWN");
+          break;
+      }
+      break;
+    case 'S':
+      byte speed = arg - 48; // 48 is ASCII for '0'
+      Serial.print("Set speed command: speed=");
+      Serial.println(speed);
+      if (speed == 0) {
+        SetSpeed(0);
+      } else {
+        SetSpeed(100 + speed * 15);
+      }
+  }
+}
+
 /*
- * Robot that is managed by an IR sensor / IR remote control
- */
+   Robot that is managed by an IR sensor / IR remote control
+*/
 void ManagedMove() {
   decode_results cmd;
   int speed = 0;
@@ -163,10 +220,11 @@ void ManagedMove() {
 }
 
 void loop() {
-//  irtest();
+  SerialController();
+  //  irtest();
   // ManagedMove();
   // MeasureDistancePinger();
-  SmartMove();
+  //SmartMove();
   //MoveItMoveIt();
   //JustForwardFullSpeed();
 }
@@ -186,8 +244,8 @@ void BackoffL() {
 }
 
 /*
- * Fully autonomous movement with obstacle detection using ultrasonic sensor
- */
+   Fully autonomous movement with obstacle detection using ultrasonic sensor
+*/
 void SmartMove() {
   const int MIN_DISTANCE = 25;
 
@@ -195,8 +253,8 @@ void SmartMove() {
   MoveForward();
   while (true) {
     int obstacleDistance = sonar.convert_cm(sonar.ping_median(5));
-  //Serial.print("Distance: ");
-  //Serial.println(obstacleDistance);
+    //Serial.print("Distance: ");
+    //Serial.println(obstacleDistance);
 
     // Try to turn a bit to the left
     if (obstacleDistance < MIN_DISTANCE) {
@@ -241,8 +299,8 @@ void MoveItMoveIt() {
 }
 
 /*
- * Utility functions to implement simple movements
- */
+   Utility functions to implement simple movements
+*/
 
 void MoveForward() {
   MoveForwardLeft();
