@@ -1,5 +1,6 @@
 #include <NewPing.h>
 
+// Wiring to L298N motor driver
 // Motor A connections
 int enA = 5;
 int in1 = 9;
@@ -9,10 +10,18 @@ int enB = 6;
 int in3 = 7;
 int in4 = 4;
 
-// Ultrasonic distance measurement
+// Ultrasonic distance measurement (via HC-SR04)
 const int TRIG_PIN = 12; // brown
 const int ECHO_PIN = 11; // black
 NewPing sonar(TRIG_PIN, ECHO_PIN, 200);
+// Min distance to obstacle in the front, in cm
+const int MIN_DISTANCE_TO_OBSTACLE = 20;
+
+// Bluetooth HC-05 is connected to RX/TX of Arduino,
+// don't forget a voltage divider on Arduino RX line
+// because HC-05 has 3.3V signals!
+
+bool obstacleDetected;
 
 void setup() {
   Serial.begin(9600);
@@ -32,23 +41,39 @@ void setup() {
   digitalWrite(in3, LOW);
   digitalWrite(in4, LOW);
 
+  obstacleDetected = false;
   Serial.println("setup() done, robot ready.");
 }
 
 // Management via serial port
 void SerialController() {
   Serial.println("Command:");
-  while(Serial.available() < 3) {delay(100);}
+
+  // Check if there is a command on a serial port. Command is always 3 bytes.
+  while(Serial.available() < 3) {
+    // No command, so just do whatever we were doing but stop if there is an obstacle.
+    int distanceToObstacle = sonar.convert_cm(sonar.ping_median(5));
+    if (distanceToObstacle < MIN_DISTANCE_TO_OBSTACLE) {
+      if (!obstacleDetected) {
+        Serial.println("Obstacle ahead, stopping");
+        STOP();
+        obstacleDetected = true;
+      }
+    } else obstacleDetected = false;
+    delay(100);
+  }
   byte cmd = Serial.read();
   byte arg = Serial.read();
   byte newline = Serial.read();
   Serial.print("Cmd=");
-  Serial.println(cmd);
-
-  Serial.print("Arg=");
+  Serial.print(cmd);
+  Serial.print(", arg=");
   Serial.println(arg);
 
   switch (cmd) {
+    case 'P': // ping
+      Serial.println("pong");
+      break;
     case 'M':
       Serial.print("Move command: ");
       switch (arg) {
@@ -84,8 +109,9 @@ void SerialController() {
       if (speed == 0) {
         SetSpeed(0);
       } else {
-        SetSpeed(100 + speed * 15);
+        SetSpeed(115 + speed * 15);
       }
+      break;
   }
 }
 
